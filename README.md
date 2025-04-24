@@ -1,4 +1,4 @@
-**This API serves as a demonstration and educational resource for showcasing modern API development practices using .NET and Domain-Driven Design principles.** It provides a comprehensive set of endpoints for managing [the core resources your API deals with - e.g., employee roles, users, products, orders]. It follows RESTful principles to ensure a predictable and easy-to-use interface for developers and utilizes a **Service-Based Implementation**.
+**This API serves as a demonstration and educational resource for showcasing modern API development practices using .NET and Domain-Driven Design principles.** It provides a comprehensive set of endpoints for managing resources. It follows RESTful principles to ensure a predictable and easy-to-use interface for developers and utilizes a **Service-Based Implementation**.
 
 ## Key Features and Design Patterns
 
