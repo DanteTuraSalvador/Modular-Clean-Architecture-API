@@ -20,3 +20,10 @@
 ## How to Run
 
 Change the connection string and Migrate and Run
+
+## STILL TO COME
+# CQRS implementation 
+# Using Dapper for Repository
+# Convertion to Minimal API
+# Utilizing Domain Events
+# And many more
