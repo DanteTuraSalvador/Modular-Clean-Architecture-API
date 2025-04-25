@@ -36,73 +36,67 @@ public class EmployeeService(
         EmployeeForCreationRequest employeeForCreationRequest)
     {
         using var scope = new TransactionScope(TransactionScopeOption.Required,
-                     new TransactionOptions { IsolationLevel = IsolationLevel.ReadCommitted },
-                     TransactionScopeAsyncFlowOption.Enabled);
-        try
+            new TransactionOptions { IsolationLevel = IsolationLevel.ReadCommitted },
+            TransactionScopeAsyncFlowOption.Enabled);
+
+        Result<EmployeeNumber> employeeNumberResult = EmployeeNumber.Create(employeeForCreationRequest.EmployeeNumber);
+        Result<PersonName> employeeNameResult = PersonName.Create(employeeForCreationRequest.FirstName,
+            employeeForCreationRequest.MiddleName, employeeForCreationRequest.LastName);
+        Result<EmailAddress> employeeEmailResult = EmailAddress.Create(employeeForCreationRequest.EmailAddress);
+        Result<EmployeeRoleId> employeeRoleIdResult = EmployeeRoleId.Create(employeeForCreationRequest.EmployeeRoleId);
+        Result<EstablishmentId> establishmentIdResult = EstablishmentId.Create(employeeForCreationRequest.EstablishmentId);
+
+        var combinedValidationResult = Result.Combine(
+            employeeNumberResult.ToResult(),
+            employeeNameResult.ToResult(),
+            employeeEmailResult.ToResult(),
+            employeeRoleIdResult.ToResult(),
+            establishmentIdResult.ToResult());
+
+        if (!combinedValidationResult.IsSuccess)
         {
-            Result<EmployeeNumber> employeeNumberResult = EmployeeNumber.Create(employeeForCreationRequest.EmployeeNumber);
-            Result<PersonName> employeeNameResult = PersonName.Create(employeeForCreationRequest.FirstName,
-                employeeForCreationRequest.MiddleName, employeeForCreationRequest.LastName);
-            Result<EmailAddress> employeeEmailResult = EmailAddress.Create(employeeForCreationRequest.EmailAddress);
-            Result<EmployeeRoleId> employeeRoleIdResult = EmployeeRoleId.Create(employeeForCreationRequest.EmployeeRoleId);
-            Result<EstablishmentId> establishmentIdResult = EstablishmentId.Create(employeeForCreationRequest.EstablishmentId);
+            return Result<Employee>.Failure(
+                ErrorType.Validation,
+                [.. combinedValidationResult.Errors]);
+        }
 
-            var combinedValidationResult = Result.Combine(
-                employeeNumberResult.ToResult(),
-                employeeNameResult.ToResult(),
-                employeeEmailResult.ToResult(),
-                employeeRoleIdResult.ToResult(),
-                establishmentIdResult.ToResult());
+        Result<bool> uniquenessCheckResult = await EmployeeCombinationExistsAsync(
+            employeeNumberResult.Value!,
+            employeeNameResult.Value!,
+            employeeEmailResult.Value!,
+            establishmentIdResult.Value!);
 
-            if (!combinedValidationResult.IsSuccess)
-            {
-                return Result<Employee>.Failure(
-                    ErrorType.Validation,
-                    [.. combinedValidationResult.Errors]);
-            }
+        if (!uniquenessCheckResult.IsSuccess)
+        {
+            return Result<Employee>.Failure(
+                uniquenessCheckResult.ErrorType,
+                uniquenessCheckResult.Errors);
+        }
 
-            Result<bool> uniquenessCheckResult = await EmployeeCombinationExistsAsync(
-                employeeNumberResult.Value!,
+        Result<Employee> employeeResult = Employee
+            .Create(employeeNumberResult.Value!,
                 employeeNameResult.Value!,
                 employeeEmailResult.Value!,
+                employeeRoleIdResult.Value!,
                 establishmentIdResult.Value!);
 
-            if (!uniquenessCheckResult.IsSuccess)
-            {
-                return Result<Employee>.Failure(
-                    uniquenessCheckResult.ErrorType,
-                    uniquenessCheckResult.Errors);
-            }
+        if (!employeeResult.IsSuccess)
+        {
+            return Result<Employee>.Failure(
+                ErrorType.Validation,
+                [.. employeeResult.Errors]);
+        }
 
-            Result<Employee> employeeResult = Employee
-                .Create(employeeNumberResult.Value!,
-                    employeeNameResult.Value!,
-                    employeeEmailResult.Value!,
-                    employeeRoleIdResult.Value!,
-                    establishmentIdResult.Value!);
+        Employee employee = employeeResult.Value!;
+        _ = await _employeeRepository.AddAsync(employee);
 
-            if (!employeeResult.IsSuccess)
-            {
-                return Result<Employee>.Failure(
-                    ErrorType.Validation,
-                    [.. employeeResult.Errors]);
-            }
-
-            Employee employee = employeeResult.Value!;
-            _ = await _employeeRepository.AddAsync(employee);
-
-            Result<Employee> commitResult = await SafeCommitAsync(() => Result<Employee>.Success(employee));
-            if (commitResult.IsSuccess)
-            {
-                scope.Complete();
-                return commitResult;
-            }
+        Result<Employee> commitResult = await SafeCommitAsync(() => Result<Employee>.Success(employee));
+        if (commitResult.IsSuccess)
+        {
+            scope.Complete();
             return commitResult;
         }
-        catch (Exception ex)
-        {
-            return Result<Employee>.Failure(ErrorType.Internal, [new Error("ServiceError", ex.Message)]);
-        }
+        return commitResult;
     }
 
     public async Task<Result<Employee>> UpdateEmployeeAsync(
@@ -110,91 +104,85 @@ public class EmployeeService(
         EmployeeForUpdateRequest employeeForUpdateRequest)
     {
         using var scope = new TransactionScope(TransactionScopeOption.Required,
-                     new TransactionOptions { IsolationLevel = IsolationLevel.ReadCommitted },
-                     TransactionScopeAsyncFlowOption.Enabled);
-        try
+            new TransactionOptions { IsolationLevel = IsolationLevel.ReadCommitted },
+            TransactionScopeAsyncFlowOption.Enabled);
+
+        Result<Employee> validatedEmployee = await _employeeRepository.GetByIdAsync(employeeId);
+        if (!validatedEmployee.IsSuccess)
         {
-            Result<Employee> validatedEmployee = await _employeeRepository.GetByIdAsync(employeeId);
-            if (!validatedEmployee.IsSuccess)
-            {
-                return validatedEmployee;
-            }
+            return validatedEmployee;
+        }
 
-            Employee employee = validatedEmployee.Value!;
-            await _employeeRepository.DetachAsync(employee);
+        Employee employee = validatedEmployee.Value!;
+        await _employeeRepository.DetachAsync(employee);
 
-            Result<EmployeeNumber> employeeNumber = EmployeeNumber.Create(employeeForUpdateRequest.EmployeeNumber);
-            Result<PersonName> employeeName = PersonName.Create(employeeForUpdateRequest.FirstName,
-                employeeForUpdateRequest.MiddleName, employeeForUpdateRequest.LastName);
-            Result<EmailAddress> employeeEmail = EmailAddress.Create(employeeForUpdateRequest.EmailAddress);
-            Result<EmployeeRoleId> employeeRoleId = EmployeeRoleId.Create(employeeForUpdateRequest.EmployeeRoleId);
-            Result<EstablishmentId> establishmentId = EstablishmentId.Create(employeeForUpdateRequest.EstablishmentId);
-            Result<EmployeeStatus> employeeStatusResult = EmployeeStatus.FromId(employeeForUpdateRequest.EmployeeStatusId);
+        Result<EmployeeNumber> employeeNumber = EmployeeNumber.Create(employeeForUpdateRequest.EmployeeNumber);
+        Result<PersonName> employeeName = PersonName.Create(employeeForUpdateRequest.FirstName,
+            employeeForUpdateRequest.MiddleName, employeeForUpdateRequest.LastName);
+        Result<EmailAddress> employeeEmail = EmailAddress.Create(employeeForUpdateRequest.EmailAddress);
+        Result<EmployeeRoleId> employeeRoleId = EmployeeRoleId.Create(employeeForUpdateRequest.EmployeeRoleId);
+        Result<EstablishmentId> establishmentId = EstablishmentId.Create(employeeForUpdateRequest.EstablishmentId);
+        Result<EmployeeStatus> employeeStatusResult = EmployeeStatus.FromId(employeeForUpdateRequest.EmployeeStatusId);
 
-            if (!employeeStatusResult.IsSuccess)
-            {
-                return Result<Employee>.Failure(
-                    employeeStatusResult.ErrorType,
-                    employeeStatusResult.Errors
-                );
-            }
-
-            var combinedValidationResult = Result.Combine(
-                employeeNumber.ToResult(),
-                employeeName.ToResult(),
-                employeeEmail.ToResult(),
-                employeeRoleId.ToResult(),
-                establishmentId.ToResult(),
-                employeeStatusResult.ToResult()
+        if (!employeeStatusResult.IsSuccess)
+        {
+            return Result<Employee>.Failure(
+                employeeStatusResult.ErrorType,
+                employeeStatusResult.Errors
             );
+        }
 
-            if (!combinedValidationResult.IsSuccess)
-            {
-                return Result<Employee>.Failure(
-                    ErrorType.Validation,
-                    combinedValidationResult.Errors.ToArray());
-            }
+        var combinedValidationResult = Result.Combine(
+            employeeNumber.ToResult(),
+            employeeName.ToResult(),
+            employeeEmail.ToResult(),
+            employeeRoleId.ToResult(),
+            establishmentId.ToResult(),
+            employeeStatusResult.ToResult()
+        );
 
-            Employee updatedEmployeeResult = employee
-                .WithEmployeeNumber(employeeNumber.Value!)
-                .Bind(e => e.WithPersonName(employeeName.Value!))
-                .Bind(e => e.WithEmail(employeeEmail.Value!))
-                .Bind(e => e.WithEmployeeRole(employeeRoleId.Value!))
-                .Bind(e => e.WithEstablishmentId(establishmentId.Value!))
-                .Bind(e => e.WithEmployeeStatus(employeeStatusResult.Value!)).Value!;
+        if (!combinedValidationResult.IsSuccess)
+        {
+            return Result<Employee>.Failure(
+                ErrorType.Validation,
+                combinedValidationResult.Errors.ToArray());
+        }
 
-            Result<bool> uniquenessCheckResult = await EmployeeCombinationExistsAsync(
-                employeeNumber.Value!,
-                employeeName.Value!,
-                employeeEmail.Value!,
-                establishmentId.Value!,
-                employeeId);
+        Employee updatedEmployeeResult = employee
+            .WithEmployeeNumber(employeeNumber.Value!)
+            .Bind(e => e.WithPersonName(employeeName.Value!))
+            .Bind(e => e.WithEmail(employeeEmail.Value!))
+            .Bind(e => e.WithEmployeeRole(employeeRoleId.Value!))
+            .Bind(e => e.WithEstablishmentId(establishmentId.Value!))
+            .Bind(e => e.WithEmployeeStatus(employeeStatusResult.Value!)).Value!;
 
-            if (!uniquenessCheckResult.IsSuccess)
-            {
-                return Result<Employee>.Failure(
-                    uniquenessCheckResult.ErrorType,
-                    uniquenessCheckResult.Errors);
-            }
+        Result<bool> uniquenessCheckResult = await EmployeeCombinationExistsAsync(
+            employeeNumber.Value!,
+            employeeName.Value!,
+            employeeEmail.Value!,
+            establishmentId.Value!,
+            employeeId);
 
-            Result<Employee> updateResult = await _employeeRepository.UpdateAsync(updatedEmployeeResult);
-            if (!updateResult.IsSuccess)
-            {
-                return updateResult;
-            }
+        if (!uniquenessCheckResult.IsSuccess)
+        {
+            return Result<Employee>.Failure(
+                uniquenessCheckResult.ErrorType,
+                uniquenessCheckResult.Errors);
+        }
 
-            Result<Employee> commitResult = await SafeCommitAsync(() => Result<Employee>.Success(updatedEmployeeResult));
-            if (commitResult.IsSuccess)
-            {
-                scope.Complete();
-                return commitResult;
-            }
+        Result<Employee> updateResult = await _employeeRepository.UpdateAsync(updatedEmployeeResult);
+        if (!updateResult.IsSuccess)
+        {
+            return updateResult;
+        }
+
+        Result<Employee> commitResult = await SafeCommitAsync(() => Result<Employee>.Success(updatedEmployeeResult));
+        if (commitResult.IsSuccess)
+        {
+            scope.Complete();
             return commitResult;
         }
-        catch (Exception ex)
-        {
-            return Result<Employee>.Failure(ErrorType.Internal, [new Error("ServiceError", ex.Message)]);
-        }
+        return commitResult;
     }
 
     public async Task<Result<Employee>> PatchEmployeeAsync(
@@ -204,210 +192,197 @@ public class EmployeeService(
         using var scope = new TransactionScope(TransactionScopeOption.Required,
             new TransactionOptions { IsolationLevel = IsolationLevel.ReadCommitted },
             TransactionScopeAsyncFlowOption.Enabled);
-        try
+
+        Result<Employee> validatedEmployee = await _employeeRepository.GetByIdAsync(employeeId);
+        if (!validatedEmployee.IsSuccess)
         {
-            Result<Employee> validatedEmployee = await _employeeRepository.GetByIdAsync(employeeId);
-            if (!validatedEmployee.IsSuccess)
+            return validatedEmployee;
+        }
+
+        Employee employee = validatedEmployee.Value!;
+        await _employeeRepository.DetachAsync(employee);
+
+        if (employeePatchRequest.EmployeeNumber != null)
+        {
+            Result<EmployeeNumber> employeeNumberResult = EmployeeNumber.Create(employeePatchRequest.EmployeeNumber);
+            if (!employeeNumberResult.IsSuccess)
             {
-                return validatedEmployee;
+                return Result<Employee>.Failure(
+                    employeeNumberResult.ErrorType,
+                    employeeNumberResult.Errors);
+            }
+            employee = employee.WithEmployeeNumber(employeeNumberResult.Value!).Value!;
+        }
+
+        if (employeePatchRequest.FirstName != null || employeePatchRequest.MiddleName != null || employeePatchRequest.LastName != null)
+        {
+            Result<PersonName> nameResult = PersonName.Create(
+                employeePatchRequest.FirstName ?? employee.EmployeeName.FirstName,
+                employeePatchRequest.MiddleName ?? employee.EmployeeName.MiddleName,
+                employeePatchRequest.LastName ?? employee.EmployeeName.LastName);
+
+            if (!nameResult.IsSuccess)
+            {
+                return Result<Employee>.Failure(
+                    nameResult.ErrorType,
+                    nameResult.Errors);
+            }
+            employee = employee.WithPersonName(nameResult.Value!).Value!;
+        }
+
+        if (employeePatchRequest.EmailAddress != null)
+        {
+            Result<EmailAddress> emailResult = EmailAddress.Create(employeePatchRequest.EmailAddress);
+            if (!emailResult.IsSuccess)
+            {
+                return Result<Employee>.Failure(
+                    emailResult.ErrorType,
+                    emailResult.Errors);
+            }
+            employee = employee.WithEmail(emailResult.Value!).Value!;
+        }
+
+        if (employeePatchRequest.EmployeeRoleId != null)
+        {
+            Result<EmployeeRoleId> roleIdResult = IdHelper.ValidateAndCreateId<EmployeeRoleId>(
+                employeePatchRequest.EmployeeRoleId);
+
+            if (!roleIdResult.IsSuccess)
+            {
+                return Result<Employee>.Failure(
+                    roleIdResult.ErrorType,
+                    roleIdResult.Errors);
             }
 
-            Employee employee = validatedEmployee.Value!;
-            await _employeeRepository.DetachAsync(employee);
-
-            if (employeePatchRequest.EmployeeNumber != null)
+            bool roleExists = await _employeeRoleRepository.RoleIdExists(roleIdResult.Value!);
+            if (!roleExists)
             {
-                Result<EmployeeNumber> employeeNumberResult = EmployeeNumber.Create(employeePatchRequest.EmployeeNumber);
-                if (!employeeNumberResult.IsSuccess)
-                {
-                    return Result<Employee>.Failure(
-                        employeeNumberResult.ErrorType,
-                        employeeNumberResult.Errors);
-                }
-                employee = employee.WithEmployeeNumber(employeeNumberResult.Value!).Value!;
+                return Result<Employee>.Failure(
+                    ErrorType.NotFound,
+                    new Error(EmployeeException.InvalidEmployeeRoleId.Code.ToString(),
+                        EmployeeException.InvalidEmployeeRoleId.Message));
+            }
+            employee = employee.WithEmployeeRole(roleIdResult.Value!).Value!;
+        }
+
+        if (employeePatchRequest.EstablishmentId != null)
+        {
+            Result<EstablishmentId> establishmentIdResult = IdHelper
+                .ValidateAndCreateId<EstablishmentId>(employeePatchRequest.EstablishmentId);
+
+            if (!establishmentIdResult.IsSuccess)
+            {
+                return Result<Employee>.Failure(
+                    establishmentIdResult.ErrorType,
+                    establishmentIdResult.Errors);
             }
 
-            if (employeePatchRequest.FirstName != null || employeePatchRequest.MiddleName != null || employeePatchRequest.LastName != null)
+            bool establishmentExists = await _establishmentRepository
+                .EstablishmentIdExists(establishmentIdResult.Value!);
+
+            if (!establishmentExists)
             {
-                Result<PersonName> nameResult = PersonName.Create(
-                    employeePatchRequest.FirstName ?? employee.EmployeeName.FirstName,
-                    employeePatchRequest.MiddleName ?? employee.EmployeeName.MiddleName,
-                    employeePatchRequest.LastName ?? employee.EmployeeName.LastName);
-
-                if (!nameResult.IsSuccess)
-                {
-                    return Result<Employee>.Failure(
-                        nameResult.ErrorType,
-                        nameResult.Errors);
-                }
-                employee = employee.WithPersonName(nameResult.Value!).Value!;
+                return Result<Employee>.Failure(
+                    ErrorType.NotFound,
+                    new Error(EmployeeException.InvalidEstablishmentId.Code.ToString(),
+                        EmployeeException.InvalidEstablishmentId.Message));
             }
+            employee = employee.WithEstablishmentId(establishmentIdResult.Value!).Value!;
+        }
 
-            if (employeePatchRequest.EmailAddress != null)
+        if (employeePatchRequest.EmployeeStatusId != null)
+        {
+            Result<EmployeeStatus> statusResult = EmployeeStatus.FromId(employeePatchRequest.EmployeeStatusId.Value);
+            if (!statusResult.IsSuccess)
             {
-                Result<EmailAddress> emailResult = EmailAddress.Create(employeePatchRequest.EmailAddress);
-                if (!emailResult.IsSuccess)
-                {
-                    return Result<Employee>.Failure(
-                        emailResult.ErrorType,
-                        emailResult.Errors);
-                }
-                employee = employee.WithEmail(emailResult.Value!).Value!;
+                return Result<Employee>.Failure(statusResult.ErrorType, statusResult.Errors);
             }
+            employee = employee.WithEmployeeStatus(statusResult.Value!).Value!;
+        }
 
-            if (employeePatchRequest.EmployeeRoleId != null)
+        if (employeePatchRequest.EmployeeNumber != null ||
+            employeePatchRequest.FirstName != null ||
+            employeePatchRequest.MiddleName != null ||
+            employeePatchRequest.LastName != null ||
+            employeePatchRequest.EstablishmentId != null ||
+            employeePatchRequest.EmailAddress != null)
+        {
+            EmployeeNumber employeeNumberToCheck = employeePatchRequest.EmployeeNumber != null
+                ? EmployeeNumber.Create(employeePatchRequest.EmployeeNumber).Value!
+                : employee.EmployeeNumber;
+
+            Result<PersonName> personNameToCheckResult = PersonName.Create(
+                employeePatchRequest.FirstName ?? employee.EmployeeName.FirstName,
+                employeePatchRequest.MiddleName ?? employee.EmployeeName.MiddleName,
+                employeePatchRequest.LastName ?? employee.EmployeeName.LastName
+            );
+
+            if (!personNameToCheckResult.IsSuccess)
             {
-                Result<EmployeeRoleId> roleIdResult = IdHelper.ValidateAndCreateId<EmployeeRoleId>(
-                    employeePatchRequest.EmployeeRoleId);
-
-                if (!roleIdResult.IsSuccess)
-                {
-                    return Result<Employee>.Failure(
-                        roleIdResult.ErrorType,
-                        roleIdResult.Errors);
-                }
-
-                bool roleExists = await _employeeRoleRepository.RoleIdExists(roleIdResult.Value!);
-                if (!roleExists)
-                {
-                    return Result<Employee>.Failure(
-                        ErrorType.NotFound,
-                        new Error(EmployeeException.InvalidEmployeeRoleId.Code.ToString(),
-                            EmployeeException.InvalidEmployeeRoleId.Message));
-                }
-                employee = employee.WithEmployeeRole(roleIdResult.Value!).Value!;
+                return Result<Employee>.Failure(
+                    personNameToCheckResult.ErrorType,
+                    personNameToCheckResult.Errors);
             }
+            PersonName personNameToCheck = personNameToCheckResult.Value!;
 
-            if (employeePatchRequest.EstablishmentId != null)
+            EmailAddress emailToCheck = employeePatchRequest.EmailAddress != null
+                ? EmailAddress.Create(employeePatchRequest.EmailAddress).Value!
+                : employee.EmployeeEmail;
+
+            EstablishmentId establishmentIdToCheck = employeePatchRequest.EstablishmentId != null
+                ? IdHelper.ValidateAndCreateId<EstablishmentId>(employeePatchRequest.EstablishmentId).Value!
+                : employee.EstablishmentId;
+
+            Result<bool> uniquenessCheckResult = await EmployeeCombinationExistsAsync(
+                employeeNumberToCheck,
+                personNameToCheck,
+                emailToCheck,
+                establishmentIdToCheck,
+                employeeId);
+
+            if (!uniquenessCheckResult.IsSuccess)
             {
-                Result<EstablishmentId> establishmentIdResult = IdHelper
-                    .ValidateAndCreateId<EstablishmentId>(employeePatchRequest.EstablishmentId);
-
-                if (!establishmentIdResult.IsSuccess)
-                {
-                    return Result<Employee>.Failure(
-                        establishmentIdResult.ErrorType,
-                        establishmentIdResult.Errors);
-                }
-
-                bool establishmentExists = await _establishmentRepository
-                    .EstablishmentIdExists(establishmentIdResult.Value!);
-
-                if (!establishmentExists)
-                {
-                    return Result<Employee>.Failure(
-                        ErrorType.NotFound,
-                        new Error(EmployeeException.InvalidEstablishmentId.Code.ToString(),
-                            EmployeeException.InvalidEstablishmentId.Message));
-                }
-                employee = employee.WithEstablishmentId(establishmentIdResult.Value!).Value!;
+                return Result<Employee>.Failure(
+                    ErrorType.Conflict,
+                    new Error(EmployeeException.DuplicateResource.Code.ToString(),
+                        EmployeeException.DuplicateEmployeeErrorMessage));
             }
+        }
 
-            if (employeePatchRequest.EmployeeStatusId != null)
-            {
-                Result<EmployeeStatus> statusResult = EmployeeStatus.FromId(employeePatchRequest.EmployeeStatusId.Value);
-                if (!statusResult.IsSuccess)
-                {
-                    return Result<Employee>.Failure(statusResult.ErrorType, statusResult.Errors);
-                }
+        Result<Employee> updateResult = await _employeeRepository.UpdateAsync(employee);
+        if (!updateResult.IsSuccess)
+        {
+            return updateResult;
+        }
 
-                employee = employee.WithEmployeeStatus(statusResult.Value!).Value!;
-            }
-
-            if (employeePatchRequest.EmployeeNumber != null ||
-                employeePatchRequest.FirstName != null ||
-                employeePatchRequest.MiddleName != null ||
-                employeePatchRequest.LastName != null ||
-                employeePatchRequest.EstablishmentId != null ||
-                employeePatchRequest.EmailAddress != null)
-            {
-                EmployeeNumber employeeNumberToCheck = employeePatchRequest.EmployeeNumber != null
-                    ? EmployeeNumber.Create(employeePatchRequest.EmployeeNumber).Value!
-                    : employee.EmployeeNumber;
-
-                Result<PersonName> personNameToCheckResult = PersonName.Create(
-                    employeePatchRequest.FirstName ?? employee.EmployeeName.FirstName,
-                    employeePatchRequest.MiddleName ?? employee.EmployeeName.MiddleName,
-                    employeePatchRequest.LastName ?? employee.EmployeeName.LastName
-                );
-
-                if (!personNameToCheckResult.IsSuccess)
-                {
-                    return Result<Employee>.Failure(
-                        personNameToCheckResult.ErrorType,
-                        personNameToCheckResult.Errors);
-                }
-                PersonName personNameToCheck = personNameToCheckResult.Value!;
-
-                EmailAddress emailToCheck = employeePatchRequest.EmailAddress != null
-                    ? EmailAddress.Create(employeePatchRequest.EmailAddress).Value!
-                    : employee.EmployeeEmail;
-
-                EstablishmentId establishmentIdToCheck = employeePatchRequest.EstablishmentId != null
-                    ? IdHelper.ValidateAndCreateId<EstablishmentId>(employeePatchRequest.EstablishmentId).Value!
-                    : employee.EstablishmentId;
-
-                Result<bool> uniquenessCheckResult = await EmployeeCombinationExistsAsync(
-                    employeeNumberToCheck,
-                    personNameToCheck,
-                    emailToCheck,
-                    establishmentIdToCheck,
-                    employeeId);
-
-                if (!uniquenessCheckResult.IsSuccess)
-                {
-                    return Result<Employee>.Failure(
-                        ErrorType.Conflict,
-                        new Error(EmployeeException.DuplicateResource.Code.ToString(),
-                            EmployeeException.DuplicateEmployeeErrorMessage));
-                }
-            }
-
-            Result<Employee> updateResult = await _employeeRepository.UpdateAsync(employee);
-            if (!updateResult.IsSuccess)
-            {
-                return updateResult;
-            }
-
-            Result<Employee> commitResult = await SafeCommitAsync(() => Result<Employee>.Success(employee));
-            if (commitResult.IsSuccess)
-            {
-                scope.Complete();
-                return commitResult;
-            }
+        Result<Employee> commitResult = await SafeCommitAsync(() => Result<Employee>.Success(employee));
+        if (commitResult.IsSuccess)
+        {
+            scope.Complete();
             return commitResult;
         }
-        catch (Exception ex)
-        {
-            return Result<Employee>.Failure(ErrorType.Internal, [new Error("ServiceError", ex.Message)]);
-        }
+        return commitResult;
     }
 
     public async Task<Result> DeleteEmployeeAsync(EmployeeId employeeId)
     {
         using var scope = new TransactionScope(TransactionScopeOption.Required,
-                     new TransactionOptions { IsolationLevel = IsolationLevel.ReadCommitted },
-                     TransactionScopeAsyncFlowOption.Enabled);
-        try
-        {
-            Result result = await _employeeRepository.DeleteAsync(employeeId);
-            if (!result.IsSuccess)
-            {
-                return result;
-            }
+            new TransactionOptions { IsolationLevel = IsolationLevel.ReadCommitted },
+            TransactionScopeAsyncFlowOption.Enabled);
 
-            Result<bool> commitResult = await SafeCommitAsync(() => Result<bool>.Success(true));
-            if (commitResult.IsSuccess)
-            {
-                scope.Complete();
-                return Result.Success();
-            }
-            return Result.Failure(commitResult.ErrorType, commitResult.Errors);
-        }
-        catch (Exception ex)
+        Result result = await _employeeRepository.DeleteAsync(employeeId);
+        if (!result.IsSuccess)
         {
-            return Result.Failure(ErrorType.Internal, [new Error("ServiceError", ex.Message)]);
+            return result;
         }
+
+        Result<bool> commitResult = await SafeCommitAsync(() => Result<bool>.Success(true));
+        if (commitResult.IsSuccess)
+        {
+            scope.Complete();
+            return Result.Success();
+        }
+        return Result.Failure(commitResult.ErrorType, commitResult.Errors);
     }
 
     private async Task<Result<bool>> EmployeeCombinationExistsAsync(
@@ -449,7 +424,7 @@ public class EmployeeService(
     }
 
     public async Task<Result<Employee>> GetEmployeeByIdAsync(EmployeeId employeeId)
-       => await _employeeRepository.GetByIdAsync(employeeId);
+        => await _employeeRepository.GetByIdAsync(employeeId);
 
     public async Task<Result<IEnumerable<Employee>>> GetAllEmployeesAsync(EmployeeSpecification spec)
         => await _employeeRepository.ListAsync(spec);

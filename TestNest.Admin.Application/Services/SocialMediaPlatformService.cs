@@ -23,160 +23,138 @@ public class SocialMediaPlatformService(
     ILogger<SocialMediaPlatformService> logger) : BaseService(unitOfWork, logger, exceptionHandlerFactory), ISocialMediaPlatformService
 {
     private readonly ISocialMediaPlatformRepository _socialMediaRepository = socialMediaRepository;
-    private readonly ILogger<SocialMediaPlatformService> _logger = logger;
 
     public async Task<Result<SocialMediaPlatform>> CreateSocialMediaPlatformAsync(
         SocialMediaPlatformForCreationRequest socialMediaPlatformForCreationRequest)
     {
-        try
+        using var scope = new TransactionScope(TransactionScopeOption.Required,
+            new TransactionOptions { IsolationLevel = IsolationLevel.ReadCommitted },
+            TransactionScopeAsyncFlowOption.Enabled);
+
+        Result<SocialMediaName> socialMediaNameResult = SocialMediaName
+            .Create(socialMediaPlatformForCreationRequest.Name,
+                socialMediaPlatformForCreationRequest.PlatformURL);
+
+        if (!socialMediaNameResult.IsSuccess)
         {
-            using var scope = new TransactionScope(TransactionScopeOption.Required,
-                new TransactionOptions { IsolationLevel = IsolationLevel.ReadCommitted },
-                TransactionScopeAsyncFlowOption.Enabled);
+            return Result<SocialMediaPlatform>.Failure(
+                ErrorType.Validation,
+                [.. socialMediaNameResult.Errors]);
+        }
 
-            Result<SocialMediaName> socialMediaNameResult = SocialMediaName
-                .Create(socialMediaPlatformForCreationRequest.Name,
-                    socialMediaPlatformForCreationRequest.PlatformURL);
+        Result<SocialMediaPlatform> existingPlatformResult = await _socialMediaRepository
+            .GetSocialMediaPlatformByNameAsync(socialMediaNameResult.Value!.Name);
 
-            if (!socialMediaNameResult.IsSuccess)
-            {
-                return Result<SocialMediaPlatform>.Failure(
-                    ErrorType.Validation,
-                    [.. socialMediaNameResult.Errors]);
-            }
+        if (existingPlatformResult.IsSuccess)
+        {
+            var exception = SocialMediaPlatformException.DuplicateResource();
+            return Result<SocialMediaPlatform>.Failure(
+                ErrorType.Conflict,
+                new Error(exception.Code.ToString(), exception.Message.ToString()));
+        }
 
-            Result<SocialMediaPlatform> existingPlatformResult = await _socialMediaRepository
-                .GetSocialMediaPlatformByNameAsync(socialMediaNameResult.Value!.Name);
+        Result<SocialMediaPlatform> socialMediaPlatformResult = SocialMediaPlatform
+            .Create(socialMediaNameResult.Value!);
 
-            if (existingPlatformResult.IsSuccess)
-            {
-                var exception = SocialMediaPlatformException.DuplicateResource();
-                return Result<SocialMediaPlatform>.Failure(
-                    ErrorType.Conflict,
-                    new Error(exception.Code.ToString(), exception.Message.ToString()));
-            }
+        if (!socialMediaPlatformResult.IsSuccess)
+        {
+            return Result<SocialMediaPlatform>.Failure(
+                ErrorType.Validation,
+                [.. socialMediaPlatformResult.Errors]);
+        }
 
-            Result<SocialMediaPlatform> socialMediaPlatformResult = SocialMediaPlatform
-                .Create(socialMediaNameResult.Value!);
+        SocialMediaPlatform socialMediaPlatform = socialMediaPlatformResult.Value!;
+        _ = await _socialMediaRepository.AddAsync(socialMediaPlatform);
 
-            if (!socialMediaPlatformResult.IsSuccess)
-            {
-                return Result<SocialMediaPlatform>.Failure(
-                    ErrorType.Validation,
-                    [.. socialMediaPlatformResult.Errors]);
-            }
-
-            SocialMediaPlatform socialMediaPlatform = socialMediaPlatformResult.Value!;
-            _ = await _socialMediaRepository.AddAsync(socialMediaPlatform);
-
-            Result<SocialMediaPlatform> commitResult = await SafeCommitAsync(
-                () => Result<SocialMediaPlatform>.Success(socialMediaPlatform));
-            if (commitResult.IsSuccess)
-            {
-                scope.Complete();
-                return commitResult;
-            }
+        Result<SocialMediaPlatform> commitResult = await SafeCommitAsync(
+            () => Result<SocialMediaPlatform>.Success(socialMediaPlatform));
+        if (commitResult.IsSuccess)
+        {
+            scope.Complete();
             return commitResult;
         }
-        catch (Exception ex)
-        {
-            return Result<SocialMediaPlatform>.Failure(ErrorType.Internal, [new Error("ServiceError", ex.Message)]);
-        }
+        return commitResult;
     }
 
     public async Task<Result<SocialMediaPlatform>> UpdateSocialMediaPlatformAsync(
         SocialMediaId socialMediaId,
         SocialMediaPlatformForUpdateRequest socialMediaPlatformUpdateDto)
     {
-        try
+        using var scope = new TransactionScope(TransactionScopeOption.Required,
+            new TransactionOptions { IsolationLevel = IsolationLevel.ReadCommitted },
+            TransactionScopeAsyncFlowOption.Enabled);
+
+        Result<SocialMediaPlatform> validatedSocialMediaPlatform = await _socialMediaRepository.GetByIdAsync(socialMediaId);
+        if (!validatedSocialMediaPlatform.IsSuccess)
         {
-            using var scope = new TransactionScope(TransactionScopeOption.Required,
-               new TransactionOptions { IsolationLevel = IsolationLevel.ReadCommitted },
-               TransactionScopeAsyncFlowOption.Enabled);
-
-            Result<SocialMediaPlatform> validatedSocialMediaPlatform = await _socialMediaRepository.GetByIdAsync(socialMediaId);
-            if (!validatedSocialMediaPlatform.IsSuccess)
-            {
-                return validatedSocialMediaPlatform;
-            }
-
-            SocialMediaPlatform socialMediaPlatform = validatedSocialMediaPlatform.Value!;
-            await _socialMediaRepository.DetachAsync(socialMediaPlatform);
-
-            Result<SocialMediaName> socialMediaName = SocialMediaName.Create(
-                socialMediaPlatformUpdateDto.Name,
-                socialMediaPlatformUpdateDto.PlatformURL);
-
-            if (!socialMediaName.IsSuccess)
-            {
-                return Result<SocialMediaPlatform>.Failure(
-                    ErrorType.Validation,
-                    socialMediaName.Errors.ToArray());
-            }
-
-            Result<SocialMediaPlatform> updatedSocialMediaPlatformResult = socialMediaPlatform
-                .WithSocialMediaName(socialMediaName.Value!);
-
-            if (!updatedSocialMediaPlatformResult.IsSuccess)
-            {
-                return updatedSocialMediaPlatformResult;
-            }
-
-            Result updateResult = await _socialMediaRepository
-                .UpdateAsync(updatedSocialMediaPlatformResult.Value!);
-            if (!updateResult.IsSuccess)
-            {
-                return Result<SocialMediaPlatform>.Failure(
-                    updateResult.ErrorType,
-                    updateResult.Errors);
-            }
-
-            Result commitResult = await SafeCommitAsync();
-            if (commitResult.IsSuccess)
-            {
-                scope.Complete();
-                return Result<SocialMediaPlatform>.Success(updatedSocialMediaPlatformResult.Value!);
-            }
-            return Result<SocialMediaPlatform>.Failure(commitResult.ErrorType, commitResult.Errors);
+            return validatedSocialMediaPlatform;
         }
-        catch (Exception ex)
+
+        SocialMediaPlatform socialMediaPlatform = validatedSocialMediaPlatform.Value!;
+        await _socialMediaRepository.DetachAsync(socialMediaPlatform);
+
+        Result<SocialMediaName> socialMediaName = SocialMediaName.Create(
+            socialMediaPlatformUpdateDto.Name,
+            socialMediaPlatformUpdateDto.PlatformURL);
+
+        if (!socialMediaName.IsSuccess)
         {
-            return Result<SocialMediaPlatform>.Failure(ErrorType.Internal, new[] { new Error("ServiceError", ex.Message) });
+            return Result<SocialMediaPlatform>.Failure(
+                ErrorType.Validation,
+                socialMediaName.Errors.ToArray());
         }
+
+        Result<SocialMediaPlatform> updatedSocialMediaPlatformResult = socialMediaPlatform
+            .WithSocialMediaName(socialMediaName.Value!);
+
+        if (!updatedSocialMediaPlatformResult.IsSuccess)
+        {
+            return updatedSocialMediaPlatformResult;
+        }
+
+        Result<SocialMediaPlatform> updateResult = await _socialMediaRepository
+            .UpdateAsync(updatedSocialMediaPlatformResult.Value!);
+        if (!updateResult.IsSuccess)
+        {
+            return Result<SocialMediaPlatform>.Failure(
+                updateResult.ErrorType,
+                updateResult.Errors);
+        }
+
+        Result commitResult = await SafeCommitAsync();
+        if (commitResult.IsSuccess)
+        {
+            scope.Complete();
+            return Result<SocialMediaPlatform>.Success(updatedSocialMediaPlatformResult.Value!);
+        }
+        return Result<SocialMediaPlatform>.Failure(commitResult.ErrorType, commitResult.Errors);
     }
 
     public async Task<Result> DeleteSocialMediaPlatformAsync(SocialMediaId socialMediaId)
     {
-        try
+        using var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled);
+        Result result = await _socialMediaRepository.DeleteAsync(socialMediaId);
+        if (!result.IsSuccess)
         {
-            using var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled);
-            Result result = await _socialMediaRepository.DeleteAsync(socialMediaId);
-            if (!result.IsSuccess)
-            {
-                return result;
-            }
+            return result;
+        }
 
-            var commitResult = await SafeCommitAsync();
-            if (commitResult.IsSuccess)
-            {
-                scope.Complete();
-                return Result.Success();
-            }
-            return Result.Failure(commitResult.ErrorType, commitResult.Errors);
-        }
-        catch (Exception ex)
+        Result commitResult = await SafeCommitAsync();
+        if (commitResult.IsSuccess)
         {
-            return Result.Failure(ErrorType.Internal, [new Error("ServiceError", ex.Message)]);
+            scope.Complete();
+            return Result.Success();
         }
+        return Result.Failure(commitResult.ErrorType, commitResult.Errors);
     }
 
     public async Task<Result<SocialMediaPlatform>> GetSocialMediaPlatformByIdAsync(SocialMediaId socialMediaId)
         => await _socialMediaRepository.GetByIdAsync(socialMediaId);
 
-    public async Task<Result<IEnumerable<SocialMediaPlatform>>> GetAllSocialMediaPlatformsAsync() 
+    public async Task<Result<IEnumerable<SocialMediaPlatform>>> GetAllSocialMediaPlatformsAsync()
         => await _socialMediaRepository.GetAllAsync();
 
-    public async Task<Result<IEnumerable<SocialMediaPlatform>>> GetAllSocialMediaPlatformsAsync(ISpecification<SocialMediaPlatform> spec) 
+    public async Task<Result<IEnumerable<SocialMediaPlatform>>> GetAllSocialMediaPlatformsAsync(ISpecification<SocialMediaPlatform> spec)
         => await _socialMediaRepository.ListAsync(spec);
 
     public async Task<Result<int>> CountAsync(ISpecification<SocialMediaPlatform> spec)
