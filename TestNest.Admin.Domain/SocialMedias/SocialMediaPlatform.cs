@@ -23,7 +23,7 @@ public sealed class SocialMediaPlatform : BaseEntity<SocialMediaId>
 
     public static Result<SocialMediaPlatform> Create(SocialMediaName socialMediaName)
     {
-        var socialMediaNameResult = SocialMediaName.Create(socialMediaName.Name, socialMediaName.PlatformURL);
+        Result<SocialMediaName> socialMediaNameResult = SocialMediaName.Create(socialMediaName.Name, socialMediaName.PlatformURL);
 
         return socialMediaNameResult.IsSuccess
             ? Result<SocialMediaPlatform>.Success(new SocialMediaPlatform(SocialMediaId.New(), socialMediaNameResult.Value!))
@@ -32,7 +32,7 @@ public sealed class SocialMediaPlatform : BaseEntity<SocialMediaId>
 
     public Result<SocialMediaPlatform> WithSocialMediaName(SocialMediaName newName)
     {
-        var socialMediaNameResult = SocialMediaName.Create(newName.Name, newName.PlatformURL);
+        Result<SocialMediaName> socialMediaNameResult = SocialMediaName.Create(newName.Name, newName.PlatformURL);
 
         return socialMediaNameResult.IsSuccess
             ? Result<SocialMediaPlatform>.Success(new SocialMediaPlatform(Id, socialMediaNameResult.Value!))

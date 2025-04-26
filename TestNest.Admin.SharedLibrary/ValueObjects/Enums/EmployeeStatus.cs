@@ -11,10 +11,10 @@ public sealed class EmployeeStatus
 
     private static readonly Dictionary<EmployeeStatus, List<EmployeeStatus>> _transitions = new()
     {
-        [None] = new() { Active },
-        [Active] = new() { Inactive, Suspended },
-        [Inactive] = new() { Active },
-        [Suspended] = new() { Inactive }
+        [None] = [Active],
+        [Active] = [Inactive, Suspended],
+        [Inactive] = [Active],
+        [Suspended] = [Inactive]
     };
 
     public int Id { get; }
@@ -25,8 +25,8 @@ public sealed class EmployeeStatus
     public static Result ValidateTransition(EmployeeStatus current, EmployeeStatus next)
     {
         var nullCheck = Result.Combine(
-            Guard.AgainstNull(current, () => EmployeeStatusException.NullStatus()),
-            Guard.AgainstNull(next, () => EmployeeStatusException.NullStatus())
+            Guard.AgainstNull(current, static () => EmployeeStatusException.NullStatus()),
+            Guard.AgainstNull(next, static () => EmployeeStatusException.NullStatus())
         );
 
         if (!nullCheck.IsSuccess)
@@ -42,7 +42,7 @@ public sealed class EmployeeStatus
             ? Result.Success()
             : Result.Failure(ErrorType.Validation,
                 new Error(nameof(EmployeeStatusException.ErrorCode.InvalidStatusTransition),
-                    transitionCheck.Errors.First().Message));
+                    transitionCheck.Errors[0].Message));
     }
 
     public static EmployeeStatus FromIdOrDefault(int id) => All.FirstOrDefault(status => status.Id == id) ?? None;
@@ -77,7 +77,7 @@ public sealed class EmployeeStatus
     }
 
     public static IReadOnlyList<EmployeeStatus> All
-        => new[] { None, Active, Inactive, Suspended };
+        => [None, Active, Inactive, Suspended];
 
     public override bool Equals(object obj)
         => obj is EmployeeStatus status && Id == status.Id;

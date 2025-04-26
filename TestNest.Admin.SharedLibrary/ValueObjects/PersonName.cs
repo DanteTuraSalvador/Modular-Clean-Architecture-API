@@ -30,7 +30,7 @@ public sealed class PersonName : ValueObject
 
     public static Result<PersonName> Create(string firstName, string? middleName, string lastName)
     {
-        var validationResult = ValidatePersonName(firstName, middleName, lastName);
+        Result validationResult = ValidatePersonName(firstName, middleName, lastName);
         return validationResult.IsSuccess
             ? Result<PersonName>.Success(new PersonName(firstName, middleName, lastName))
             : Result<PersonName>.Failure(ErrorType.Validation, validationResult.Errors);
@@ -41,19 +41,23 @@ public sealed class PersonName : ValueObject
 
     private static Result ValidatePersonName(string firstName, string? middleName, string lastName)
     {
-        var resultFirstnNameNull = Guard.AgainstNull(firstName, () => PersonNameException.NullPersonName());
+        Result resultFirstnNameNull = Guard.AgainstNull(firstName, static () => PersonNameException.NullPersonName());
         if (!resultFirstnNameNull.IsSuccess)
+        {
             return Result.Failure(ErrorType.Validation, resultFirstnNameNull.Errors);
+        }
 
-        var resultLastName = Guard.AgainstNull(lastName, () => PersonNameException.NullPersonName());
+        Result resultLastName = Guard.AgainstNull(lastName, static () => PersonNameException.NullPersonName());
         if (!resultLastName.IsSuccess)
+        {
             return Result.Failure(ErrorType.Validation, resultLastName.Errors);
+        }
 
         return Result.Combine(
-            Guard.AgainstNullOrWhiteSpace(firstName, () => PersonNameException.EmptyFirstName()),
-            Guard.AgainstNullOrWhiteSpace(lastName, () => PersonNameException.EmptyLastName()),
-            Guard.AgainstCondition(!NamePattern.IsMatch(firstName) || !NamePattern.IsMatch(lastName) || (middleName is not null && !NamePattern.IsMatch(middleName)), () => PersonNameException.InvalidCharacters()),
-            Guard.AgainstCondition(firstName.Length < 2 || firstName.Length > 100 || lastName.Length < 2 || lastName.Length > 100 || (middleName is not null && (middleName.Length < 2 || middleName.Length > 100)), () => PersonNameException.InvalidLength())
+            Guard.AgainstNullOrWhiteSpace(firstName, static () => PersonNameException.EmptyFirstName()),
+            Guard.AgainstNullOrWhiteSpace(lastName, static () => PersonNameException.EmptyLastName()),
+            Guard.AgainstCondition(!NamePattern.IsMatch(firstName) || !NamePattern.IsMatch(lastName) || middleName is not null && !NamePattern.IsMatch(middleName), static () => PersonNameException.InvalidCharacters()),
+            Guard.AgainstCondition(firstName.Length < 2 || firstName.Length > 100 || lastName.Length < 2 || lastName.Length > 100 || middleName is not null && (middleName.Length < 2 || middleName.Length > 100), static () => PersonNameException.InvalidLength())
         );
     }
 
@@ -61,7 +65,10 @@ public sealed class PersonName : ValueObject
     {
         yield return FirstName;
         if (MiddleName is not null)
+        {
             yield return MiddleName;
+        }
+
         yield return LastName;
     }
 
@@ -69,10 +76,7 @@ public sealed class PersonName : ValueObject
 
     public override string ToString() => GetFullName();
 
-    public string GetFullName()
-    {
-        return string.IsNullOrWhiteSpace(MiddleName)
+    public string GetFullName() => string.IsNullOrWhiteSpace(MiddleName)
             ? $"{FirstName} {LastName}"
             : $"{FirstName} {MiddleName} {LastName}";
-    }
 }

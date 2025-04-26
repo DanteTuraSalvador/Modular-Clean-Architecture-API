@@ -4,12 +4,11 @@ using TestNest.Admin.SharedLibrary.ValueObjects.Common;
 
 namespace TestNest.Admin.SharedLibrary.ValueObjects;
 
-public sealed class EmailAddress : ValueObject
+public sealed partial class EmailAddress : ValueObject
 {
     private static readonly Regex EmailRegex = new(@"^[^\s@]+@[^\s@]+\.[^\s@]+$", RegexOptions.Compiled);
 
-    private static readonly Regex DomainRegex = new(@"^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex DomainRegex = DomainPattern();
 
     public string Email { get; }
     private static readonly Lazy<EmailAddress> _empty = new(() => new EmailAddress());
@@ -24,28 +23,30 @@ public sealed class EmailAddress : ValueObject
 
     private static Result ValidateEmail(string email)
     {
-        var validations = new List<Result>();
-        validations.Add(Guard.AgainstNullOrWhiteSpace(email,
-            () => EmailAddressException.InvalidFormat()));
+        var validations = new List<Result>
+        {
+            Guard.AgainstNullOrWhiteSpace(email,
+            static () => EmailAddressException.InvalidFormat())
+        };
         if (email != null)
         {
             validations.Add(Guard.AgainstCondition(email.Count(c => c == '@') != 1,
-                () => EmailAddressException.InvalidFormat()));
+                static () => EmailAddressException.InvalidFormat()));
             validations.Add(Guard.AgainstCondition(!EmailRegex.IsMatch(email),
-                () => EmailAddressException.InvalidFormat()));
+                static () => EmailAddressException.InvalidFormat()));
             if (EmailRegex.IsMatch(email))
             {
-                var domain = email.Split('@')[1];
+                string domain = email.Split('@')[1];
                 validations.Add(Guard.AgainstCondition(!DomainRegex.IsMatch(domain),
-                    () => EmailAddressException.InvalidFormat()));
+                    static () => EmailAddressException.InvalidFormat()));
             }
         }
-        return Result.Combine(validations.ToArray());
+        return Result.Combine([.. validations]);
     }
 
     public static Result<EmailAddress> Create(string email)
     {
-        var validationResult = ValidateEmail(email);
+        Result validationResult = ValidateEmail(email);
         return validationResult.IsSuccess
             ? Result<EmailAddress>.Success(new EmailAddress(email!))
             : Result<EmailAddress>.Failure(ErrorType.Validation, validationResult.Errors);
@@ -55,7 +56,9 @@ public sealed class EmailAddress : ValueObject
 
     public static Result<EmailAddress> TryParse(string email) => Create(email);
 
-    protected override IEnumerable<object?> GetAtomicValues() => new object[] { Email };
+    protected override IEnumerable<object?> GetAtomicValues() => [Email];
 
     public override string ToString() => Email;
+    [GeneratedRegex(@"^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$", RegexOptions.IgnoreCase | RegexOptions.Compiled, "en-PH")]
+    private static partial Regex DomainPattern();
 }

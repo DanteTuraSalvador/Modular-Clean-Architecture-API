@@ -21,17 +21,19 @@ public sealed class EmployeeNumber : ValueObject
 
     public static Result<EmployeeNumber> Create(string employeeNumber)
     {
-        var resultNull = Guard.AgainstNull(employeeNumber, () => EmployeeNumberException.NullEmployeeNumber());
+        Result resultNull = Guard.AgainstNull(employeeNumber, static () => EmployeeNumberException.NullEmployeeNumber());
         if (!resultNull.IsSuccess)
+        {
             return Result<EmployeeNumber>.Failure(ErrorType.Validation, resultNull.Errors);
+        }
 
         var result = Result.Combine(
             Guard.AgainstNullOrWhiteSpace(employeeNumber,
-                () => EmployeeNumberException.EmptyEmployeeNumber()),
+                static () => EmployeeNumberException.EmptyEmployeeNumber()),
             Guard.AgainstCondition(!EmployeeNumberRegex.IsMatch(employeeNumber),
-                () => EmployeeNumberException.InvalidEmployeeNumberFormat()),
+                static () => EmployeeNumberException.InvalidEmployeeNumberFormat()),
             Guard.AgainstRange(employeeNumber.Length, 3, 10,
-                () => EmployeeNumberException.LengthOutOfRangeEmployeeNumber())
+                static() => EmployeeNumberException.LengthOutOfRangeEmployeeNumber())
         );
         return result.IsSuccess
             ? Result<EmployeeNumber>.Success(new EmployeeNumber(employeeNumber))
@@ -41,7 +43,7 @@ public sealed class EmployeeNumber : ValueObject
     public Result<EmployeeNumber> WithRoleName(string newEmployeeNumber)
         => Create(newEmployeeNumber);
 
-    protected override IEnumerable<object?> GetAtomicValues() => new object?[] { EmployeeNo };
+    protected override IEnumerable<object?> GetAtomicValues() => [EmployeeNo];
 
     public override string ToString() => EmployeeNo;
 }

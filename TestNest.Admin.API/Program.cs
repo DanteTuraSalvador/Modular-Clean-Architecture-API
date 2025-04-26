@@ -1,12 +1,10 @@
 ﻿using System.Reflection;
-using Mapster;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using Newtonsoft.Json.Serialization;
 using TestNest.Admin.API.Exceptions;
-using TestNest.Admin.API.Mappings;
 using TestNest.Admin.API.Middleware;
 using TestNest.Admin.Application;
 using TestNest.Admin.Infrastructure;
@@ -59,8 +57,6 @@ public static class Program
         });
 
         _ = builder.Services.AddPersistenceServices(builder.Configuration);
-        builder.Services.AddMapster();
-        TypeAdapterConfig.GlobalSettings.Apply(new MapsterMappingConfig());
         _ = builder.Services.AddScoped<IErrorResponseService, ErrorResponseService>();
         _ = builder.Services.AddApplicationServices(builder.Configuration);
 

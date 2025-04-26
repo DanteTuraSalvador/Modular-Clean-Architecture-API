@@ -1,5 +1,4 @@
-﻿namespace TestNest.Admin.SharedLibrary.Dtos.Requests;
-
+﻿namespace TestNest.Admin.SharedLibrary.Dtos.Responses;
 public class EmployeeRoleResponse
 {
     public string Id { get; set; }
