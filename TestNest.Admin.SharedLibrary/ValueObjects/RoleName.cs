@@ -4,12 +4,9 @@ using TestNest.Admin.SharedLibrary.ValueObjects.Common;
 
 namespace TestNest.Admin.SharedLibrary.ValueObjects;
 
-public sealed partial class RoleName : ValueObject
+public sealed class RoleName : ValueObject
 {
-    [GeneratedRegex(@"^[A-Za-z0-9 &'_-]+$", RegexOptions.IgnoreCase | RegexOptions.Compiled, "en-PH")]
-    private static partial Regex RoleNamePattern();
-
-    private static readonly Regex DefaultPattern = RoleNamePattern();
+    private static readonly Regex DefaultPattern = new(@"^[A-Za-z0-9 &'_-]+$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     public bool IsEmpty() => this == Empty();
 
@@ -25,7 +22,7 @@ public sealed partial class RoleName : ValueObject
 
     public static Result<RoleName> Create(string roleName)
     {
-        Result validationResult = ValidateRoleName(roleName);
+        var validationResult = ValidateRoleName(roleName);
         return validationResult.IsSuccess
             ? Result<RoleName>.Success(new RoleName(roleName))
             : Result<RoleName>.Failure(ErrorType.Validation, validationResult.Errors);
@@ -36,7 +33,7 @@ public sealed partial class RoleName : ValueObject
 
     public static Result<RoleName> TryParse(string roleName)
     {
-        Result validationResult = ValidateRoleName(roleName);
+        var validationResult = ValidateRoleName(roleName);
         return validationResult.IsSuccess
             ? Result<RoleName>.Success(new RoleName(roleName))
             : Result<RoleName>.Failure(ErrorType.Validation, validationResult.Errors);
@@ -44,16 +41,14 @@ public sealed partial class RoleName : ValueObject
 
     private static Result ValidateRoleName(string roleName)
     {
-        Result resultNull = Guard.AgainstNull(roleName, static () => RoleNameException.NullRoleName());
+        var resultNull = Guard.AgainstNull(roleName, () => RoleNameException.NullRoleName());
         if (!resultNull.IsSuccess)
-        {
             return Result.Failure(ErrorType.Validation, resultNull.Errors);
-        }
 
         return Result.Combine(
-            Guard.AgainstNullOrWhiteSpace(roleName, static () => RoleNameException.EmptyRoleName()),
-            Guard.AgainstCondition(!DefaultPattern.IsMatch(roleName), static () => RoleNameException.InvalidRoleNameCharacters()),
-            Guard.AgainstRange(roleName.Length, 3, 100, static () => RoleNameException.InvalidRoleNameLength())
+            Guard.AgainstNullOrWhiteSpace(roleName, () => RoleNameException.EmptyRoleName()),
+            Guard.AgainstCondition(!DefaultPattern.IsMatch(roleName), () => RoleNameException.InvalidRoleNameCharacters()),
+            Guard.AgainstRange(roleName.Length, 3, 100, () => RoleNameException.InvalidRoleNameLength())
         );
     }
 
@@ -63,5 +58,4 @@ public sealed partial class RoleName : ValueObject
     }
 
     public override string ToString() => Name;
- 
 }

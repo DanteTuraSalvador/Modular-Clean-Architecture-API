@@ -6,13 +6,18 @@ using TestNest.Admin.SharedLibrary.StronglyTypeIds;
 
 namespace TestNest.Admin.Application.Contracts.Interfaces.Service;
 
+// Interface defining the contract for an employee role service.
 public interface IEmployeeRoleService
 {
-    Task<Result<EmployeeRole>> CreateEmployeeRoleAsync(EmployeeRoleForCreationRequest employeeRoleForCreationRequest);
+    Task<Result<EmployeeRole>> CreateEmployeeRoleAsync(
+        EmployeeRoleForCreationRequest employeeRoleForCreationRequest);
 
-    Task<Result<EmployeeRole>> UpdateEmployeeRoleAsync(EmployeeRoleId employeeRoleId, EmployeeRoleForUpdateRequest employeeRoleForUpdateRequest);
+    Task<Result<EmployeeRole>> UpdateEmployeeRoleAsync(
+        EmployeeRoleId employeeRoleId,
+        EmployeeRoleForUpdateRequest employeeRoleForUpdateRequest);
 
     Task<Result> DeleteEmployeeRoleAsync(EmployeeRoleId employeeRoleId);
+
     Task<Result<EmployeeRole>> GetEmployeeRoleByIdAsync(EmployeeRoleId employeeRoleId);
 
     Task<Result<IEnumerable<EmployeeRole>>> GetEmployeeRolessAsync(ISpecification<EmployeeRole> spec);

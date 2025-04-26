@@ -154,12 +154,8 @@ public class EmployeeRoleService(
     public async Task<Result<EmployeeRole>> GetEmployeeRoleByIdAsync(EmployeeRoleId employeeRoleId)
         => await _employeeRoleRepository.GetByIdAsync(employeeRoleId);
 
-
-
     public async Task<Result<IEnumerable<EmployeeRole>>> GetEmployeeRolessAsync(ISpecification<EmployeeRole> spec)
         => await _employeeRoleRepository.ListAsync(spec);
-
-  
 
     public async Task<Result<int>> CountAsync(ISpecification<EmployeeRole> spec)
         => await _employeeRoleRepository.CountAsync(spec);
