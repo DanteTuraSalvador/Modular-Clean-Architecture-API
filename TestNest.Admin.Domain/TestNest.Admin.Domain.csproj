@@ -7,12 +7,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="SonarAnalyzer.CSharp"/>
-    <ProjectReference Include="..\TestNest.Admin.SharedLibrary\TestNest.Admin.SharedLibrary.csproj" />
+    <Compile Remove="Exceptions\**" />
+    <EmbeddedResource Remove="Exceptions\**" />
+    <None Remove="Exceptions\**" />
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Exceptions\" />
+    <PackageReference Include="SonarAnalyzer.CSharp" />
+    <ProjectReference Include="..\TestNest.Admin.SharedLibrary\TestNest.Admin.SharedLibrary.csproj" />
   </ItemGroup>
 
 </Project>

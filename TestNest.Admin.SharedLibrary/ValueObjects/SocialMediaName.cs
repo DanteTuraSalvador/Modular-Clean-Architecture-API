@@ -20,7 +20,7 @@ public sealed class SocialMediaName : ValueObject
 
     public static Result<SocialMediaName> Create(string name, string platformURL)
     {
-        var validationResult = ValidateSocialMediaName(name, platformURL);
+        Result validationResult = ValidateSocialMediaName(name, platformURL);
         return validationResult.IsSuccess
             ? Result<SocialMediaName>.Success(new SocialMediaName(name, platformURL))
             : Result<SocialMediaName>.Failure(ErrorType.Validation, validationResult.Errors);
@@ -37,7 +37,7 @@ public sealed class SocialMediaName : ValueObject
 
     public static Result<SocialMediaName> TryParse(string name, string platformURL)
     {
-        var validationResult = ValidateSocialMediaName(name, platformURL);
+        Result validationResult = ValidateSocialMediaName(name, platformURL);
         return validationResult.IsSuccess
             ? Result<SocialMediaName>.Success(new SocialMediaName(name, platformURL))
             : Result<SocialMediaName>.Failure(ErrorType.Validation, validationResult.Errors);
@@ -45,20 +45,24 @@ public sealed class SocialMediaName : ValueObject
 
     private static Result ValidateSocialMediaName(string name, string platformURL)
     {
-        var resultNameNull = Guard.AgainstNull(name, () => SocialMediaNameException.NullSocialMediaName());
+        Result resultNameNull = Guard.AgainstNull(name, static () => SocialMediaNameException.NullSocialMediaName());
         if (!resultNameNull.IsSuccess)
+        {
             return Result.Failure(ErrorType.Validation, resultNameNull.Errors);
+        }
 
-        var resultPlatformURLNull = Guard.AgainstNull(name, () => SocialMediaNameException.NullSocialMediaName());
+        Result resultPlatformURLNull = Guard.AgainstNull(name, static () => SocialMediaNameException.NullSocialMediaName());
         if (!resultPlatformURLNull.IsSuccess)
+        {
             return Result.Failure(ErrorType.Validation, resultPlatformURLNull.Errors);
+        }
 
         return Result.Combine(
-            Guard.AgainstNullOrWhiteSpace(name, () => SocialMediaNameException.EmptyName()),
-            Guard.AgainstCondition(!ValidNamePattern.IsMatch(name), () => SocialMediaNameException.InvalidCharacters()),
-            Guard.AgainstRange(name.Length, 3, 50, () => SocialMediaNameException.InvalidLength()),
-            Guard.AgainstNullOrWhiteSpace(platformURL, () => SocialMediaNameException.EmptyPlatformURL()),
-            Guard.AgainstCondition(!Uri.IsWellFormedUriString(platformURL, UriKind.Absolute) || !platformURL.StartsWith("http", StringComparison.OrdinalIgnoreCase), () => SocialMediaNameException.InvalidPlatformURLFormat())
+            Guard.AgainstNullOrWhiteSpace(name, static () => SocialMediaNameException.EmptyName()),
+            Guard.AgainstCondition(!ValidNamePattern.IsMatch(name), static () => SocialMediaNameException.InvalidCharacters()),
+            Guard.AgainstRange(name.Length, 3, 50,static () => SocialMediaNameException.InvalidLength()),
+            Guard.AgainstNullOrWhiteSpace(platformURL, static () => SocialMediaNameException.EmptyPlatformURL()),
+            Guard.AgainstCondition(!Uri.IsWellFormedUriString(platformURL, UriKind.Absolute) || !platformURL.StartsWith("http", StringComparison.OrdinalIgnoreCase), static () => SocialMediaNameException.InvalidPlatformURLFormat())
         );
     }
 
