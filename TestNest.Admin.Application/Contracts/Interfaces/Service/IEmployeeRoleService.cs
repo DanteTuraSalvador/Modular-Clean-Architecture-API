@@ -12,7 +12,7 @@ public interface IEmployeeRoleService
     Task<Result<EmployeeRoleResponse>> CreateEmployeeRoleAsync(
         EmployeeRoleForCreationRequest employeeRoleForCreationRequest);
 
-    Task<Result<EmployeeRole>> UpdateEmployeeRoleAsync(
+    Task<Result<EmployeeRoleResponse>> UpdateEmployeeRoleAsync(
         EmployeeRoleId employeeRoleId,
         EmployeeRoleForUpdateRequest employeeRoleForUpdateRequest);
 

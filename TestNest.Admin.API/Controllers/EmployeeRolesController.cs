@@ -86,14 +86,14 @@ public class EmployeeRolesController(
                 employeeRoleIdValidatedResult.Errors);
         }
 
-        Result<EmployeeRole> updatedEmployeeRole = await _employeeRoleService
+        Result<EmployeeRoleResponse> updatedEmployeeRole = await _employeeRoleService
             .UpdateEmployeeRoleAsync(
                 employeeRoleIdValidatedResult.Value!,
                 employeeRoleForUpdateRequest);
 
         if (updatedEmployeeRole.IsSuccess)
         {
-            return Ok(updatedEmployeeRole.Value!.ToEmployeeRoleResponse());
+            return Ok(updatedEmployeeRole.Value!);
         }
 
         return HandleErrorResponse(
