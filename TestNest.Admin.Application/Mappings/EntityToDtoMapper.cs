@@ -76,5 +76,16 @@ public static class EntityToDtoMapper
         ContactPhoneNumber = contact.ContactPhone.PhoneNo,
         IsPrimary = contact.IsPrimary
     };
+
+    public static EstablishmentMemberResponse ToEstablishmentMemberResponse(this EstablishmentMember member) => new()
+    {
+        EstablishmentMemberId = member.Id.Value.ToString(),
+        EstablishmentId = member.EstablishmentId.Value.ToString(),
+        EmployeeId = member.EmployeeId.Value.ToString(),
+        MemberTitle = member.MemberTitle.Title,
+        MemberDescription = member.MemberDescription.Description,
+        MemberTag = member.MemberTag.Tag
+    };
+
 }
 

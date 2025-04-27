@@ -8,29 +8,6 @@ using TestNest.Admin.SharedLibrary.ValueObjects;
 
 namespace TestNest.Admin.Application.Contracts.Interfaces.Service;
 
-//public interface IEstablishmentPhoneService
-//{
-//    Task<Result<EstablishmentPhone>> GetEstablishmentPhoneByIdAsync(EstablishmentPhoneId establishmentPhoneId);
-
-//    Task<Result<EstablishmentPhone>> CreateEstablishmentPhoneAsync(EstablishmentPhoneForCreationRequest establishmentPhoneForCreationRequest);
-
-//    Task<Result<EstablishmentPhone>> UpdateEstablishmentPhoneAsync(EstablishmentPhoneId establishmentPhoneId, EstablishmentPhoneForUpdateRequest establishmentPhoneForUpdateRequest);
-
-//    Task<Result<EstablishmentPhone>> PatchEstablishmentPhoneAsync(EstablishmentPhoneId establishmentPhoneId, EstablishmentPhonePatchRequest establishmentPhonePatchRequest);
-
-//    Task<Result> DeleteEstablishmentPhoneAsync(EstablishmentPhoneId establishmentPhoneId);
-
-//    Task<Result<IEnumerable<EstablishmentPhone>>> ListAsync(ISpecification<EstablishmentPhone> spec);
-
-//    Task<Result<int>> CountAsync(ISpecification<EstablishmentPhone> spec);
-
-//    Task<Result<bool>> EstablishmentPhoneCombinationExistsAsync(
-//       PhoneNumber phoneNumber,
-//       EstablishmentId establishmentId,
-//       EstablishmentPhoneId? excludedPhoneId = null);
-//}
-
-
 public interface IEstablishmentPhoneService
 {
     Task<Result<EstablishmentPhoneResponse>> GetEstablishmentPhoneByIdAsync(EstablishmentPhoneId establishmentPhoneId);

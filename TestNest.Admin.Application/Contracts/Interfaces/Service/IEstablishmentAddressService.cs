@@ -7,16 +7,15 @@ using TestNest.Admin.SharedLibrary.StronglyTypeIds;
 
 namespace TestNest.Admin.Application.Contracts.Interfaces.Service;
 
-
 public interface IEstablishmentAddressService
 {
-    Task<Result<EstablishmentAddressResponse>> CreateEstablishmentAddressAsync(EstablishmentAddressForCreationRequest request); // Updated return type
+    Task<Result<EstablishmentAddressResponse>> CreateEstablishmentAddressAsync(EstablishmentAddressForCreationRequest request); 
 
-    Task<Result<EstablishmentAddressResponse>> UpdateEstablishmentAddressAsync( // Updated return type
+    Task<Result<EstablishmentAddressResponse>> UpdateEstablishmentAddressAsync(
         EstablishmentAddressId establishmentAddressId,
         EstablishmentAddressForUpdateRequest establishmentAddressForUpdateRequest);
 
-    Task<Result<EstablishmentAddressResponse>> PatchEstablishmentAddressAsync( // Updated return type
+    Task<Result<EstablishmentAddressResponse>> PatchEstablishmentAddressAsync(
         EstablishmentAddressId establishmentAddressId,
         EstablishmentAddressPatchRequest establishmentAddressPatchRequest);
 
@@ -28,23 +27,4 @@ public interface IEstablishmentAddressService
 
     Task<Result<int>> CountAsync(ISpecification<EstablishmentAddress> spec);
 }
-//public interface IEstablishmentAddressService
-//{
-//    Task<Result<EstablishmentAddress>> CreateEstablishmentAddressAsync(EstablishmentAddressForCreationRequest request);
 
-//    Task<Result<EstablishmentAddress>> UpdateEstablishmentAddressAsync(
-//        EstablishmentAddressId establishmentAddressId,
-//        EstablishmentAddressForUpdateRequest establishmentAddressForUpdateRequest);
-
-//    Task<Result<EstablishmentAddress>> PatchEstablishmentAddressAsync(
-//        EstablishmentAddressId establishmentAddressId,
-//        EstablishmentAddressPatchRequest establishmentAddressPatchRequest);
-
-//    Task<Result> DeleteEstablishmentAddressAsync(EstablishmentAddressId establishmentAddressId);
-
-//    Task<Result<EstablishmentAddress>> GetEstablishmentAddressByIdAsync(EstablishmentAddressId establishmentAddressId);
-
-//    Task<Result<IEnumerable<EstablishmentAddress>>> ListAsync(ISpecification<EstablishmentAddress> spec);
-
-//    Task<Result<int>> CountAsync(ISpecification<EstablishmentAddress> spec);
-//}

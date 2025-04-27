@@ -1,10 +1,8 @@
-﻿using MapsterMapper;
-using Microsoft.AspNetCore.JsonPatch;
+﻿using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using TestNest.Admin.API.Helpers;
 using TestNest.Admin.Application.Contracts.Interfaces.Service;
 using TestNest.Admin.Application.Specifications.EstablishmentMemberSpecifications;
-using TestNest.Admin.Domain.Establishments;
 using TestNest.Admin.SharedLibrary.Common.Results;
 using TestNest.Admin.SharedLibrary.Dtos.Paginations;
 using TestNest.Admin.SharedLibrary.Dtos.Requests.Establishment;
@@ -21,11 +19,9 @@ namespace TestNest.Admin.API.Controllers;
 [Route("api/[controller]")]
 public class EstablishmentMembersController(
     IEstablishmentMemberService establishmentMemberService,
-    IMapper mapper,
     IErrorResponseService errorResponseService) : ControllerBase
 {
     private readonly IEstablishmentMemberService _establishmentMemberService = establishmentMemberService;
-    private readonly IMapper _mapper = mapper;
     private readonly IErrorResponseService _errorResponseService = errorResponseService;
 
     /// <summary>
@@ -45,11 +41,11 @@ public class EstablishmentMembersController(
     public async Task<IActionResult> CreateEstablishmentMember(
         [FromBody] EstablishmentMemberForCreationRequest creationRequest)
     {
-        Result<EstablishmentMember> result = await _establishmentMemberService.CreateEstablishmentMemberAsync(creationRequest);
+        Result<EstablishmentMemberResponse> result = await _establishmentMemberService.CreateEstablishmentMemberAsync(creationRequest);
 
         if (result.IsSuccess)
         {
-            EstablishmentMemberResponse dto = _mapper.Map<EstablishmentMemberResponse>(result.Value!);
+            EstablishmentMemberResponse? dto = result.Value;
             return CreatedAtAction(nameof(GetEstablishmentMembers), new { establishmentMemberId = dto.EstablishmentMemberId }, dto);
         }
 
@@ -85,11 +81,11 @@ public class EstablishmentMembersController(
             return HandleErrorResponse(memberIdResult.ErrorType, memberIdResult.Errors);
         }
 
-        Result<EstablishmentMember> updatedMember = await _establishmentMemberService.UpdateEstablishmentMemberAsync(memberIdResult.Value!, updateRequest);
+        Result<EstablishmentMemberResponse> updatedMember = await _establishmentMemberService.UpdateEstablishmentMemberAsync(memberIdResult.Value!, updateRequest);
 
         if (updatedMember.IsSuccess)
         {
-            return Ok(_mapper.Map<EstablishmentMemberResponse>(updatedMember.Value!));
+            return Ok(updatedMember.Value!);
         }
 
         return HandleErrorResponse(updatedMember.ErrorType, updatedMember.Errors);
@@ -134,11 +130,11 @@ public class EstablishmentMembersController(
             return HandleErrorResponse(ErrorType.Validation, validationErrors);
         }
 
-        Result<EstablishmentMember> patchedMember = await _establishmentMemberService.PatchEstablishmentMemberAsync(memberIdResult.Value!, patchRequest);
+        Result<EstablishmentMemberResponse> patchedMember = await _establishmentMemberService.PatchEstablishmentMemberAsync(memberIdResult.Value!, patchRequest);
 
         if (patchedMember.IsSuccess)
         {
-            return Ok(_mapper.Map<EstablishmentMemberResponse>(patchedMember.Value!));
+            return Ok(patchedMember.Value!);
         }
 
         return HandleErrorResponse(patchedMember.ErrorType, patchedMember.Errors);
@@ -220,10 +216,10 @@ public class EstablishmentMembersController(
                 return HandleErrorResponse(memberIdResult.ErrorType, memberIdResult.Errors);
             }
 
-            Result<EstablishmentMember> singleMemberResult = await _establishmentMemberService.GetEstablishmentMemberByIdAsync(memberIdResult.Value!);
+            Result<EstablishmentMemberResponse> singleMemberResult = await _establishmentMemberService.GetEstablishmentMemberByIdAsync(memberIdResult.Value!);
 
             return singleMemberResult.IsSuccess && singleMemberResult.Value != null
-                ? Ok(_mapper.Map<EstablishmentMemberResponse>(singleMemberResult.Value))
+                ? Ok(singleMemberResult.Value)
                 : NotFound();
         }
         else
@@ -245,12 +241,10 @@ public class EstablishmentMembersController(
             { return HandleErrorResponse(countResult.ErrorType, countResult.Errors); }
             int totalCount = countResult.Value;
 
-            Result<IEnumerable<EstablishmentMember>> membersResult = await _establishmentMemberService.ListAsync(spec);
+            Result<IEnumerable<EstablishmentMemberResponse>> membersResult = await _establishmentMemberService.ListAsync(spec);
             if (!membersResult.IsSuccess)
             { return HandleErrorResponse(membersResult.ErrorType, membersResult.Errors); }
-            IEnumerable<EstablishmentMember> members = membersResult.Value!;
-
-            IEnumerable<EstablishmentMemberResponse> responseData = _mapper.Map<IEnumerable<EstablishmentMemberResponse>>(members);
+            IEnumerable<EstablishmentMemberResponse> responseData = membersResult.Value!;
 
             int totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
 
